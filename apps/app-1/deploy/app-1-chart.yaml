@@ -1,0 +1,89 @@
+---
+# Source: app-1-chart/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: app-1-app-1-chart
+  namespace: app-1-ns
+  labels:
+    helm.sh/chart: app-1-chart-0.1.0
+    app.kubernetes.io/name: app-1-chart
+    app.kubernetes.io/instance: app-1
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+automountServiceAccountToken: true
+---
+# Source: app-1-chart/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-1-app-1-chart
+  namespace: app-1-ns
+  labels:
+    helm.sh/chart: app-1-chart-0.1.0
+    app.kubernetes.io/name: app-1-chart
+    app.kubernetes.io/instance: app-1
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: app-1-chart
+    app.kubernetes.io/instance: app-1
+---
+# Source: app-1-chart/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-1-app-1-chart
+  namespace: app-1-ns
+  labels:
+    helm.sh/chart: app-1-chart-0.1.0
+    app.kubernetes.io/name: app-1-chart
+    app.kubernetes.io/instance: app-1
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: app-1-chart
+      app.kubernetes.io/instance: app-1
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: app-1-chart-0.1.0
+        app.kubernetes.io/name: app-1-chart
+        app.kubernetes.io/instance: app-1
+        app.kubernetes.io/version: "1.0.0"
+        app.kubernetes.io/managed-by: Helm
+    spec:
+      serviceAccountName: app-1-app-1-chart
+      containers:
+        - name: app-1-chart
+          image: "petrut/app-1:1.0.1"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
