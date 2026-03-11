@@ -3,8 +3,6 @@ name: Compact Branch History
 on:
   push:
     branches: [ test-fixed-history ]
-  schedule:
-    - cron: '*/5 * * * *'
   workflow_dispatch:
     inputs:
       max_commits:
