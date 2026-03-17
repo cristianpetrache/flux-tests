@@ -1,0 +1,63 @@
+name: Compact Branch History
+
+on:
+  push:
+    branches: [ test-fixed-history ]
+  workflow_dispatch:
+    inputs:
+      max_commits:
+        description: 'Maximum number of commits to keep on test-fixed-history'
+        required: false
+        default: '5'
+
+permissions:
+  contents: write
+
+jobs:
+  compact-history:
+    runs-on: ubuntu-latest
+
+    env:
+      MAX_COMMITS: ${{ github.event.inputs.max_commits || '5' }}
+      TARGET_BRANCH: test-fixed-history
+
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Compact history
+        run: |
+          TOTAL=$(git rev-list --count HEAD)
+          echo "Total commits : $TOTAL"
+          echo "Max commits   : $MAX_COMMITS"
+
+          if [ "$TOTAL" -le "$MAX_COMMITS" ]; then
+            echo "Nothing to do — $TOTAL commits is within the $MAX_COMMITS limit."
+            exit 0
+          fi
+
+          # HEAD~(MAX_COMMITS-1) is the oldest commit we want to preserve as-is.
+          # Everything up to and including that commit gets squashed into one new root.
+          SQUASH_POINT=$(git rev-parse "HEAD~$((MAX_COMMITS - 1))")
+          SQUASH_TREE=$(git rev-parse "${SQUASH_POINT}^{tree}")
+          echo "Squash point  : $SQUASH_POINT"
+
+          # Create an orphan (parentless) commit whose tree matches the squash point.
+          NEW_ROOT=$(git commit-tree "$SQUASH_TREE" -m "Squashed history (before $(date -u '+%Y-%m-%d %H:%M:%S UTC'))")
+          echo "New root      : $NEW_ROOT"
+
+          # Replay the last MAX_COMMITS-1 commits on top of the new root.
+          git rebase --onto "$NEW_ROOT" "$SQUASH_POINT"
+
+      - name: Push compacted history
+        run: |
+          git push origin "HEAD:$TARGET_BRANCH" --force
